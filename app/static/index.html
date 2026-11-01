@@ -22,19 +22,19 @@
   <section class="cmd reveal">
     <div class="cmd-group">
       <div class="field">
-        <span class="field-label">Dataset subject</span>
-        <input id="subject-filter" type="text" placeholder="Search 1,004 scans…" autocomplete="off">
+        <span class="field-label">Pick a patient scan</span>
+        <input id="subject-filter" type="text" placeholder="Search 1,004 real MRI scans…" autocomplete="off">
         <select id="subject-select"></select>
-        <label class="chk"><input type="checkbox" id="reveal-label"><span></span>reveal ground truth</label>
+        <label class="chk"><input type="checkbox" id="reveal-label"><span></span>show the patient's actual diagnosis</label>
       </div>
 
       <div class="cmd-sep"><span>or</span></div>
 
       <div class="field">
-        <span class="field-label">MRI scan upload</span>
+        <span class="field-label">Upload your own brain scan</span>
         <div id="dropzone" role="button" tabindex="0">
           <span class="dz-icon">↓</span>
-          <span class="dz-text">Drop <code>.nii</code> / <code>.nii.gz</code> — or click to browse</span>
+          <span class="dz-text">Drop a skull-stripped <code>.nii</code> / <code>.nii.gz</code> file — or click to browse</span>
           <input id="file-input" type="file" accept=".nii,.gz" hidden>
         </div>
         <div id="file-name"></div>
@@ -57,7 +57,7 @@
 
   <!-- ======== exports ======== -->
   <div id="csv-bar" class="exports reveal hidden">
-    <span class="exp-label">Export encoding data</span>
+    <span class="exp-label">Download the raw numbers</span>
     <a data-csv="roi_features">roi features<span class="dl">↓</span></a>
     <a data-csv="pca_components">pca<span class="dl">↓</span></a>
     <a data-csv="qubit_angles">qubit angles<span class="dl">↓</span></a>
@@ -65,34 +65,52 @@
     <a data-csv="kernel_similarities">kernel row<span class="dl">↓</span></a>
   </div>
 
+  <!-- ======== how it works ======== -->
+  <section class="steps reveal">
+    <div class="step"><span class="step-n">1</span><b>Brain scan</b><p>An MRI scan is read and 69 brain regions are measured.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step"><span class="step-n">2</span><b>Compression</b><p>The 69 measurements are condensed into 4 key numbers.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step"><span class="step-n">3</span><b>Quantum encoding</b><p>Each number becomes a rotation angle on one of 4 qubits.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step"><span class="step-n">4</span><b>Comparison</b><p>The quantum AI compares this brain to 753 known patients.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step"><span class="step-n">5</span><b>Prediction</b><p>Most similar cases vote for the final result.</p></div>
+  </section>
+
   <!-- ======== figures ======== -->
   <section id="fig-grid" class="hidden">
 
     <figure class="plate span-12" id="card-mri">
-      <figcaption><span class="idx">01</span>MRI — orthogonal mid-slices</figcaption>
+      <figcaption><span class="idx">01</span>MRI — three views of the brain</figcaption>
+      <p class="explain">Your uploaded scan, seen from the top, front, and side. The dark outline is the skull-stripped brain tissue the AI measures.</p>
       <img id="fig-mri_slices" alt="MRI slices">
     </figure>
 
     <figure class="plate span-7">
-      <figcaption><span class="idx">02</span>PCA projection → qubit rotation angles</figcaption>
+      <figcaption><span class="idx">02</span>Brain data → quantum angles</figcaption>
+      <p class="explain">Left: the 4 compressed brain features (called principal components). Right: each one converted into a rotation angle between 0 and π — the exact numbers fed to the quantum computer.</p>
       <img id="fig-pca_angles" alt="PCA and qubit angles">
     </figure>
 
     <figure class="plate span-5">
-      <figcaption><span class="idx">03</span>Encoding table</figcaption>
+      <figcaption><span class="idx">03</span>The quantum fingerprint</figcaption>
+      <p class="explain">One row per qubit: its compressed brain value and the rotation it performs. Together, these 4 angles are this brain's quantum fingerprint.</p>
       <table id="angle-table">
-        <thead><tr><th>qubit</th><th>pc value</th><th>angle rad</th><th>deg</th></tr></thead>
+        <thead><tr><th>qubit</th><th>brain value</th><th>angle rad</th><th>deg</th></tr></thead>
         <tbody></tbody>
       </table>
     </figure>
 
     <figure class="plate span-12">
-      <figcaption><span class="idx">04</span>Kernel fidelity vs 753 training states</figcaption>
+      <figcaption><span class="idx">04</span>Similarity to 753 known patients</figcaption>
+      <p class="explain">How strongly this brain's quantum state matches each patient in the training set — <b class="t-teal">teal = typical controls</b>, <b class="t-rose">pink = autism patients</b>. Where the tall bars pile up is what the AI "votes" for.</p>
       <img id="fig-kernel_hist" alt="Kernel similarity">
     </figure>
 
     <figure class="plate span-12">
-      <figcaption><span class="idx">05</span>ZZFeatureMap · transpiled circuit</figcaption>
+      <figcaption><span class="idx">05</span>The quantum circuit</figcaption>
+      <p class="explain">The actual 4-qubit circuit (a ZZFeatureMap) that encodes the brain data — 4 qubit wires, 12 entangling gates connecting them. This is the "neural network" of the quantum computer.</p>
       <img id="fig-circuit" alt="Quantum circuit">
     </figure>
 
@@ -104,6 +122,7 @@
     <span>NeuroQ-ASD · ABIDE I structural MRI · Qiskit Fall Fest 2026</span>
     <span class="mono">K(xᵢ, xⱼ) = |⟨φ(xᵢ)|φ(xⱼ)⟩|²</span>
   </footer>
+  <p class="disclaimer">Research demonstration only — this tool is not a medical device and does not provide a diagnosis. Always consult a qualified clinician.</p>
 
 </main>
 

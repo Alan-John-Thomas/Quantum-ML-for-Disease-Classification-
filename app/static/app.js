@@ -89,22 +89,23 @@ function renderResult(d) {
     : (c.prediction !== q.prediction ? ["RBF-SVM"] : []);
   const concur = v ? `${(v.probabilities.autism * 100).toFixed(1)}%` : "—";
   $("pred-sub").innerHTML =
-    `Quantum kernel decision score <b>${q.decision_score.toFixed(3)}</b>. ` +
+    `The quantum AI's score is <b>${q.decision_score.toFixed(3)}</b> ` +
+    `(positive leans autism, negative leans control). ` +
     (dissent.length === 0
-      ? `All three models concur — QSVM, VQC (<b>${concur} autism</b>), and RBF-SVM (<b>${(c.probabilities.autism * 100).toFixed(1)}% autism</b>).`
-      : `<b>${d.consensus?.n_agree ?? "?"}/${d.consensus?.n_models ?? "?"}</b> consensus — ` +
-        `${dissent.join(" and ")} dissent${dissent.length > 1 ? "" : "s"}.`);
+      ? `All three AI models agree — the prediction is more reliable.`
+      : `<b>${d.consensus?.n_agree ?? "?"}/${d.consensus?.n_models ?? "?"}</b> AI models agree — ` +
+        `${dissent.join(" and ")} see${dissent.length > 1 ? "" : "s"} it differently, so treat this with caution.`);
 
   /* spec row */
   const t = d.timings;
   const specs = [
-    [q.confidence.toFixed(3), "", "qsvm confidence"],
-    [(v?.probabilities.autism * 100).toFixed(1), "%", "vqc autism prob"],
-    [(c.probabilities.autism * 100).toFixed(1), "%", "rbf autism prob"],
-    [t.quantum_infer_ms ?? "—", "ms", "quantum infer"],
+    [q.confidence.toFixed(3), "", "quantum ai confidence"],
+    [(v?.probabilities.autism * 100).toFixed(1), "%", "vqc autism chance"],
+    [(c.probabilities.autism * 100).toFixed(1), "%", "classical autism chance"],
+    [t.quantum_infer_ms ?? "—", "ms", "quantum analysis"],
     [t.roi_extraction_ms ?? t.encode_ms ?? "—", "ms",
-     t.roi_extraction_ms ? "roi extraction" : "encoding"],
-    [t.total_ms ?? "—", "ms", "total"],
+     t.roi_extraction_ms ? "brain scan prep" : "encoding"],
+    [t.total_ms ?? "—", "ms", "total time"],
   ];
   $("spec-row").innerHTML = specs.map(([v, u, k]) =>
     `<div class="spec"><div class="v">${v}<span class="u">${u}</span></div><div class="k">${k}</div></div>`
@@ -118,7 +119,8 @@ function renderResult(d) {
     const hit = (s.true_dx_group === 1) === (q.prediction === 1);
     truth.classList.remove("hidden");
     truth.innerHTML =
-      `ground truth — <b>${s.true_label}</b> <span class="${hit ? "hit" : "miss"}">${hit ? "· correct" : "· misclassified"}</span>`;
+      `This patient's real diagnosis is <b>${s.true_label}</b> — ` +
+      `<span class="${hit ? "hit" : "miss"}">${hit ? "the AI got it right" : "the AI got it wrong"}</span>`;
   } else {
     truth.classList.add("hidden");
   }
