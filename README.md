@@ -31,3 +31,27 @@ This repository maintains shared context, operational contracts, and agent skill
 
 - **Member 1 (Quantum Lead):** Quantum circuits, feature maps, kernel estimation, VQC, circuit metrics.
 - **Member 2 (Classical ML Lead):** Clinical data ingestion, dimensionality reduction, classical baselines, benchmarking suite.
+
+---
+
+## Real-Time Classification Web App (`q1` branch)
+
+A Flask backend + dashboard that classifies MRI scans live through the quantum kernel pipeline.
+
+```bash
+pip install -r requirements.txt
+python app/server.py            # http://127.0.0.1:5000  (first run fits + persists models/)
+python app/server.py --retrain  # force rebuild of models/pipeline.joblib
+```
+
+- **Input:** pick any of the 1,004 ABIDE subjects from the parquet, or drag-and-drop a skull-stripped `.nii` / `.nii.gz` scan (CPU ROI extraction via nibabel + `scipy.map_coordinates`, Harvard-Oxford atlas from the local nilearn cache — set `ATLAS_DIR` to override).
+- **Output:** QSVM (full entanglement) prediction + classical RBF-SVM comparison, plus per-stage figures: MRI slices, ROI profile, PCA→qubit angles, 16-state statevector probabilities, per-qubit Bloch vectors, kernel-fidelity histogram, circuit diagram.
+- **CSV exports:** `roi_features`, `pca_components`, `qubit_angles`, `statevector`, `kernel_similarities` — via dashboard buttons or `GET /api/export/<job_id>/<kind>.csv`.
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /api/info` | Circuit metrics, PCA variance, dataset summary |
+| `GET /api/subjects` | All subjects with label + train/test split |
+| `POST /api/classify` | `{"subject_id": N}` → full quantum payload + figures |
+| `POST /api/classify/scan` | multipart `file=.nii[.gz]` → extraction + payload |
+| `GET /api/export/<job>/<kind>.csv` | CSV download of encoding artefacts |

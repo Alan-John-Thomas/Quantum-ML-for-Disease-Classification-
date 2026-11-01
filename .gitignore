@@ -49,3 +49,6 @@ qiskit-env/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Persisted inference artifacts (regenerate via app/server.py --retrain)
+models/
