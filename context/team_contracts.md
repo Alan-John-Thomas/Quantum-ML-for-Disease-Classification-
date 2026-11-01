@@ -1,27 +1,54 @@
 # Team Division & Interface Contracts
 
+**Project:** Quantum Machine Learning for Autism Spectrum Disorder (ASD) Classification  
+**Target Dataset:** ABIDE I Structural Brain MRI (504 Controls, 500 Autism Scans)  
+
 This document formalizes the division of labor between the two team members, defines the interface contracts for all data and code artifacts, and outlines the synchronization points.
 
 ---
 
 ## 1. Member Ownership Matrix
 
-| Area | Member 1 (Quantum Lead) | Member 2 (ML & Evaluation Lead) |
+| Area | Member 1 (Alan — Quantum Lead) | Member 2 (Jeswin — Neuroimaging & Baselines Lead) |
 | :--- | :--- | :--- |
-| **Primary Focus** | Quantum Circuits, Quantum Kernels, VQC | Clinical Data Pipeline, Classical Baselines, Benchmarking |
-| **Owned Components** | - Feature map selection (`ZFeatureMap`, `ZZFeatureMap`)<br>- Variational ansatz design (`RealAmplitudes`, `EfficientSU2`)<br>- Statevector & shot-based Quantum Kernel estimator<br>- VQC architecture & optimizer tuning (`COBYLA`, `SPSA`)<br>- Circuit transpilation & complexity metrics (depth, CNOTs) | - Dataset ingestion (`load_breast_cancer` / Heart Disease)<br>- Normalization & PCA dimensionality reduction<br>- Train/Test splitting (`StratifiedKFold`, `random_state=42`)<br>- Classical baselines (Logistic Regression, SVM-RBF, RF)<br>- Evaluation harness (Accuracy, F1, ROC-AUC, latency)<br>- Presentation slide deck & demo orchestration |
-| **Shared Reviews** | Reviews data scaling to verify it adheres to $[0, \pi]$ rotation limits. | Reviews circuit outputs to format tables and plots for presentation. |
+| **Primary Focus** | Quantum Circuits, Quantum Kernels, VQC Engine | MRI Preprocessing, ROI Extraction, Baseline Harness |
+| **Owned Components** | - Modular data loader for `abide_roi_features.parquet`<br>- PCA dimensionality reduction ($d \to 4-6$ components)<br>- Feature mapping (`ZFeatureMap`, `ZZFeatureMap` linear/full)<br>- Variational ansatz design (`RealAmplitudes`)<br>- Statevector & shot-based Quantum Kernel Gram matrix<br>- VQC architecture & optimizer tuning (`COBYLA`, `SPSA`)<br>- Transpilation & circuit complexity profiling (depth, CNOT count) | - Accessing local MRI scans (`D:\study\autisim\`)<br>- Running `nilearn` resampling & Harvard-Oxford atlas masking<br>- Exporting `data/abide_roi_features.parquet` to `dev`<br>- Generating brain slice visualization overlays for slides<br>- Classical baselines (Logistic Regression, SVM-RBF, RF)<br>- Evaluation metrics & presentation slide design |
+| **Shared Reviews** | Verifies feature scaling strictly bounded in $[0, \pi]$ for angle rotation. | Reviews circuit diagrams and benchmark tables for presentation. |
 
 ---
 
 ## 2. Technical Interface Contracts
 
-### Contract 1: Preprocessed Data Schema
-Member 2 provides the data loader output consumed directly by Member 1's quantum circuits and classical baselines.
+### Contract 1: MRI ROI Parquet Handoff Schema (`data/abide_roi_features.parquet`)
+Member 2 (Jeswin) extracts features from `.nii.gz` scans on his machine and outputs a single tabular Parquet file committed to `dev`:
+
+```
+data/abide_roi_features.parquet
+```
+
+**Schema Specifications:**
+- **Number of rows:** $\sim 1,004$ (or current processed batch).
+- **Identifier Column:**
+  - `subject_id` (int or string, e.g. `50002`, `50030`).
+- **Target Label Column:**
+  - `dx_group` (int: `1` = Autism Spectrum Disorder, `2` = Typical Control).
+- **Feature Columns:**
+  - Continuous float columns representing regional mean intensities (e.g. `roi_01`, `roi_02`, ... or anatomical names from Harvard-Oxford atlas like `Frontal_Pole`, `Insular_Cortex`, etc.).
+  - Recommended ROI count: 48 to 110 regions.
+
+**Invariants:**
+- No `NaN`, `null`, or infinite values (impute with median or zero).
+- File size is compact ($\sim 300\text{ KB} - 1\text{ MB}$), cleanly committable to git.
+- **Zero PII:** Only anonymized numerical identifiers and mean intensities.
+
+---
+
+### Contract 2: Preprocessed Quantum-Ready Data Loader
+Member 1 (Alan) consumes `abide_roi_features.parquet` through `src/data_loader.py`:
 
 ```python
-# Function signature:
 def load_and_preprocess_data(
+    parquet_path: str = "data/abide_roi_features.parquet",
     n_features: int = 4,
     test_size: float = 0.25,
     random_state: int = 42,
@@ -37,28 +64,12 @@ def load_and_preprocess_data(
 ```
 
 **Invariants:**
-- `X_train.shape[1] == X_test.shape[1] == n_features` (Default: $4$, optional $6$).
+- `X_train.shape[1] == X_test.shape[1] == n_features` ($4$ or $6$ qubits).
 - `np.all((X_train >= 0.0) & (X_train <= np.pi)) == True`.
 - `np.all((X_test >= 0.0) & (X_test <= np.pi)) == True`.
-- Stratification MUST be applied (`stratify=y`).
-- The scaler fitted on `X_train` MUST be used to transform `X_test` (no data leakage).
-
----
-
-### Contract 2: Model Wrapper Interface (Scikit-Learn Standard)
-Every classifier (classical or quantum) MUST implement or conform to standard scikit-learn estimator methods:
-
-```python
-class BaseDiseaseClassifier:
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "BaseDiseaseClassifier":
-        ...
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Returns 1D array of shape (N,) with integer class labels {0, 1}."""
-        ...
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Returns 2D array of shape (N, 2) with predicted class probabilities [P(0), P(1)]."""
-        ...
-```
+- Target labels mapped: Autism = `1`, Control = `0`.
+- Stratified splitting applied (`stratify=y`).
+- Scalers fitted on train set only (`fit_transform` on train, `transform` on test).
 
 ---
 
@@ -66,31 +77,31 @@ class BaseDiseaseClassifier:
 Member 1 provides the precomputed kernel computation:
 
 ```python
-# Kernel computation schema:
 # K_train: shape (N_train, N_train), symmetric: K_train[i, j] == K_train[j, i], diagonal == 1.0
 # K_test:  shape (N_test, N_train)
 ```
 
 **Invariants:**
-- Diagonal entries $K_{ii} = 1.0$ (state fidelity with itself is unity).
+- Diagonal entries $K_{ii} = 1.0$.
 - $0.0 \le K_{ij} \le 1.0$ for all elements.
 - The precomputed Gram matrix is passed directly to `sklearn.svm.SVC(kernel='precomputed')`.
 
 ---
 
-### Contract 4: Evaluation Results Format
-Member 2's benchmark suite logs model performance using a standard dictionary schema:
+### Contract 4: Benchmark Evaluation Results Schema
+All models log metrics using the standard dictionary format:
 
 ```python
 {
     "model_name": str,                  # e.g., "Quantum Kernel SVM (ZZ, reps=2)"
-    "accuracy": float,                  # e.g., 0.9441
-    "precision": float,                 # e.g., 0.9350
-    "recall": float,                    # e.g., 0.9500
-    "f1_score": float,                  # e.g., 0.9424
-    "roc_auc": float,                   # e.g., 0.9812
-    "train_time_sec": float,            # e.g., 4.25
-    "inference_time_sec": float,        # e.g., 0.82
+    "accuracy": float,                  # e.g., 0.6850
+    "balanced_accuracy": float,         # e.g., 0.6830 (critical for clinical datasets)
+    "precision": float,                 # e.g., 0.6700
+    "recall": float,                    # e.g., 0.7100
+    "f1_score": float,                  # e.g., 0.6894
+    "roc_auc": float,                   # e.g., 0.7250
+    "train_time_sec": float,            # e.g., 3.85
+    "inference_time_ms_per_sample": float, # e.g., 0.45
     "circuit_qubits": int | None,       # 4 (or None for classical)
     "circuit_depth": int | None,        # 12 (or None for classical)
     "cnot_count": int | None            # 6 (or None for classical)
@@ -103,8 +114,8 @@ Member 2's benchmark suite logs model performance using a standard dictionary sc
 
 | Checkpoint | Time Target | Milestone Objective | Deliverable |
 | :--- | :--- | :--- | :--- |
-| **CP-1** | 11:15 AM | Data Pipeline & Baseline Lock | Clean `data_loader` and initial Logistic Regression / SVM baseline metrics |
-| **CP-2** | 12:30 PM | Quantum Feature Maps Transpiled | Transpiled `ZZFeatureMap` depth & CNOT metrics on 4 qubits |
-| **CP-3** | 02:30 PM | Quantum Kernel SVM Evaluated | Fast statevector Gram matrix computed, evaluated against classical SVM |
-| **CP-4** | 03:45 PM | VQC Trained & Benchmarks Consolidated | Full comparative table (Classical vs Q-Kernel vs VQC) finalized |
-| **CP-5** | 04:15 PM | Presentation & Demo Dry Run | Slides completed, Jupyter notebook demo verified end-to-end |
+| **CP-1** | 12:00 PM | Parquet Feature Handoff | Jeswin pushes `data/abide_roi_features.parquet` to `dev` |
+| **CP-2** | 12:45 PM | Baselines & Feature Maps Ready | Classical models trained + transpiled `ZZFeatureMap` logged |
+| **CP-3** | 01:30 PM | Mid-Day Sync & Lunch | Quantum Kernel SVM benchmarked on test set |
+| **CP-4** | 03:00 PM | VQC Trained & Benchmarks Frozen | VQC loss convergence + consolidated comparison table |
+| **CP-5** | 04:00 PM | Presentation & Demo Dry Run | Slides completed, notebook demo verified end-to-end |
