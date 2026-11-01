@@ -48,7 +48,7 @@
 
   <!-- ======== verdict ======== -->
   <section id="verdict" class="reveal">
-    <div class="kicker" id="verdict-kicker">quantum kernel svm · zzfeaturemap · 4 qubits</div>
+    <div class="kicker" id="verdict-kicker">qsvm + vqc + rbf-svm · zzfeaturemap · 4 qubits</div>
     <h1 id="pred-label" class="idle">Awaiting input</h1>
     <p id="pred-sub">Choose a subject or drop a scan — the pipeline encodes the scan into a 16-dimensional Hilbert space and classifies in real time.</p>
     <div id="subject-truth" class="truth hidden"></div>
@@ -106,8 +106,13 @@
       <img id="fig-kernel_hist" alt="Kernel similarity">
     </figure>
 
+    <figure class="plate span-5">
+      <figcaption><span class="idx">08</span>VQC · COBYLA convergence</figcaption>
+      <img id="fig-vqc_loss" alt="VQC training loss">
+    </figure>
+
     <figure class="plate span-12">
-      <figcaption><span class="idx">08</span>ZZFeatureMap · transpiled circuit</figcaption>
+      <figcaption><span class="idx">09</span>ZZFeatureMap · transpiled circuit</figcaption>
       <img id="fig-circuit" alt="Quantum circuit">
     </figure>
 

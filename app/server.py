@@ -67,6 +67,7 @@ def _attach_figures(payload: dict, nii_path: str | None = None) -> dict:
             payload["quantum_state"]["amplitudes_im"]),
         "bloch": qv.fig_bloch(payload["quantum_state"]["bloch_vectors"]),
         "kernel_hist": qv.fig_kernel_hist(payload["kernel_row"], p.y_train),
+        "vqc_loss": qv.fig_vqc_loss(p.vqc.training_loss_history_),
     }
     if nii_path is not None:
         figs["mri_slices"] = qv.fig_mri_slices(nii_path)

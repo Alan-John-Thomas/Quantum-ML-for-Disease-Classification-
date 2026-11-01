@@ -67,7 +67,7 @@ function retriggerInkIn(el) {
 }
 
 function renderResult(d) {
-  const q = d.quantum, c = d.classical;
+  const q = d.quantum, c = d.classical, v = d.vqc;
   const cls = q.prediction === 1 ? "autism" : "control";
 
   /* verdict */
@@ -80,16 +80,26 @@ function renderResult(d) {
     ? `scan · ${d.scan_file}`
     : `subject · #${d.subject?.subject_id ?? "—"} · ${d.subject?.split ?? ""} split`;
 
+  /* consensus line */
+  const names = { qsvm: "QSVM", rbf: "RBF-SVM", vqc: "VQC" };
+  const dissent = d.consensus
+    ? Object.entries(d.consensus.votes)
+        .filter(([k, val]) => val !== q.prediction)
+        .map(([k]) => names[k])
+    : (c.prediction !== q.prediction ? ["RBF-SVM"] : []);
+  const concur = v ? `${(v.probabilities.autism * 100).toFixed(1)}%` : "—";
   $("pred-sub").innerHTML =
     `Quantum kernel decision score <b>${q.decision_score.toFixed(3)}</b>. ` +
-    (d.agree
-      ? `The classical RBF-SVM concurs (<b>${(c.probabilities[q.prediction === 1 ? "autism" : "control"] * 100).toFixed(1)}%</b>).`
-      : `The classical RBF-SVM dissents — it predicts <b>${c.label}</b> (<b>${(c.probabilities.autism * 100).toFixed(1)}% autism</b>).`);
+    (dissent.length === 0
+      ? `All three models concur — QSVM, VQC (<b>${concur} autism</b>), and RBF-SVM (<b>${(c.probabilities.autism * 100).toFixed(1)}% autism</b>).`
+      : `<b>${d.consensus?.n_agree ?? "?"}/${d.consensus?.n_models ?? "?"}</b> consensus — ` +
+        `${dissent.join(" and ")} dissent${dissent.length > 1 ? "" : "s"}.`);
 
   /* spec row */
   const t = d.timings;
   const specs = [
     [q.confidence.toFixed(3), "", "qsvm confidence"],
+    [(v?.probabilities.autism * 100).toFixed(1), "%", "vqc autism prob"],
     [(c.probabilities.autism * 100).toFixed(1), "%", "rbf autism prob"],
     [t.quantum_infer_ms ?? "—", "ms", "quantum infer"],
     [t.roi_extraction_ms ?? t.encode_ms ?? "—", "ms",

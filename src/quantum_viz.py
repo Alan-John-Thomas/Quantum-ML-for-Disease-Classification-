@@ -201,6 +201,26 @@ def fig_kernel_hist(kernel_row, y_train) -> str:
     return _fig_to_b64(fig)
 
 
+def fig_vqc_loss(loss_history) -> str | None:
+    """COBYLA convergence curve of the Variational Quantum Classifier."""
+    if not loss_history:
+        return None
+    losses = np.asarray(loss_history)
+    fig, ax = plt.subplots(figsize=(8, 3.2), facecolor=PAPER)
+    ax.plot(range(1, len(losses) + 1), losses, color=INDIGO, lw=2,
+            marker="o", ms=3.5, markerfacecolor="#fffefa",
+            markeredgewidth=1.4)
+    ax.fill_between(range(1, len(losses) + 1), losses,
+                    losses.min(), color=INDIGO, alpha=0.08)
+    ax.set_xlabel("COBYLA iteration")
+    ax.set_ylabel("MSE loss")
+    ax.set_title(f"VQC training convergence — final loss "
+                 f"{losses[-1]:.4f} ({len(losses)} evals, "
+                 "RealAmplitudes ansatz)")
+    _style_ax(ax)
+    return _fig_to_b64(fig)
+
+
 def fig_circuit(feature_map) -> str:
     """ZZFeatureMap circuit diagram."""
     fig = feature_map.draw(output="mpl", style="iqp")

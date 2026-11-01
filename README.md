@@ -45,7 +45,7 @@ python app/server.py --retrain  # force rebuild of models/pipeline.joblib
 ```
 
 - **Input:** pick any of the 1,004 ABIDE subjects from the parquet, or drag-and-drop a skull-stripped `.nii` / `.nii.gz` scan (CPU ROI extraction via nibabel + `scipy.map_coordinates`, Harvard-Oxford atlas from the local nilearn cache — set `ATLAS_DIR` to override).
-- **Output:** QSVM (full entanglement) prediction + classical RBF-SVM comparison, plus per-stage figures: MRI slices, ROI profile, PCA→qubit angles, 16-state statevector probabilities, per-qubit Bloch vectors, kernel-fidelity histogram, circuit diagram.
+- **Output:** three-model consensus — QSVM (full entanglement), VQC (RealAmplitudes + COBYLA), and classical RBF-SVM — plus per-stage figures: MRI slices, ROI profile, PCA→qubit angles, 16-state statevector magnitudes/phases, per-qubit Bloch vectors, kernel-fidelity histogram, VQC loss curve, circuit diagram.
 - **CSV exports:** `roi_features`, `pca_components`, `qubit_angles`, `statevector`, `kernel_similarities` — via dashboard buttons or `GET /api/export/<job_id>/<kind>.csv`.
 
 | Endpoint | Description |

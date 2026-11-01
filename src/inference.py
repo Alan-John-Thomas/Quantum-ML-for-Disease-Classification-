@@ -31,6 +31,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC
 
 from src.quantum_kernel import FastQuantumKernelClassifier
+from src.vqc_classifier import VQCClassifier
 
 MODEL_PATH = Path("models/pipeline.joblib")
 PARQUET_PATH = Path("data/abide_roi_features.parquet")
@@ -87,6 +88,12 @@ def _build_artifacts(parquet_path: Path, random_state: int = 42) -> dict:
         X_train, y_train
     )
 
+    print("[pipeline] fitting VQC (RealAmplitudes + COBYLA)...")
+    vqc = VQCClassifier(
+        n_qubits=N_QUBITS, reps=1, entanglement="linear",
+        maxiter=25, subsample_train=100, random_state=random_state
+    ).fit(X_train, y_train)
+
     return {
         "feature_cols": feature_cols,
         "std_scaler": std,
@@ -103,6 +110,9 @@ def _build_artifacts(parquet_path: Path, random_state: int = 42) -> dict:
         "X_raw": X_raw,
         "qsvm_svc": qsvm.svc,
         "rbf_svc": rbf,
+        "vqc_weights": vqc.weights_,
+        "vqc_loss_history": vqc.training_loss_history_,
+        "vqc_circuit_metrics": vqc.get_circuit_metrics(),
         "circuit_metrics": circ,
         "pca_variance": pca.explained_variance_ratio_.tolist(),
         "n_qubits": N_QUBITS,
@@ -128,6 +138,11 @@ class InferencePipeline:
                 {k: v for k, v in art.items()}, self.model_path
             )
             print(f"[pipeline] artifacts saved -> {self.model_path}")
+        if "vqc_weights" not in art:
+            # artifact predates the VQC model — rebuild once
+            print("[pipeline] stale artifact (no VQC) — rebuilding…")
+            art = _build_artifacts(self.parquet_path)
+            joblib.dump(art, self.model_path)
         self.__dict__.update(art)
 
         # Rebuild the quantum classifier shell around the persisted SVC and
@@ -142,6 +157,14 @@ class InferencePipeline:
         self.qsvm.svc = self.qsvm_svc
         print(f"[pipeline] {len(self.X_train)} train statevectors ready "
               f"({time.perf_counter() - t0:.1f}s)")
+
+        # Rebuild the VQC shell around persisted COBYLA weights.
+        self.vqc = VQCClassifier(
+            n_qubits=art["n_qubits"], reps=art["reps"],
+            entanglement="linear", maxiter=1, subsample_train=1,
+        )
+        self.vqc.weights_ = art["vqc_weights"]
+        self.vqc.training_loss_history_ = art["vqc_loss_history"]
 
         self._test_sid_set = set(self.test_subject_ids.tolist())
 
@@ -193,6 +216,10 @@ class InferencePipeline:
         c_pred = int(self.rbf_svc.predict([angles])[0])
         c_proba = self.rbf_svc.predict_proba([angles])[0].tolist()
 
+        v_prob = self.vqc.predict_proba([angles])[0]  # [P(control), P(autism)]
+        v_pred = int(v_prob[1] >= 0.5)
+        votes = [q_pred, c_pred, v_pred]
+
         amps = sv.data
         basis = [format(i, f"0{self.n_qubits}b") for i in range(len(amps))]
         pcs = self.pca.transform(
@@ -212,7 +239,18 @@ class InferencePipeline:
                 "label": LABEL_NAMES[c_pred],
                 "probabilities": {"control": c_proba[0], "autism": c_proba[1]},
             },
+            "vqc": {
+                "prediction": v_pred,
+                "label": LABEL_NAMES[v_pred],
+                "probabilities": {"control": float(v_prob[0]),
+                                  "autism": float(v_prob[1])},
+            },
             "agree": q_pred == c_pred,
+            "consensus": {
+                "votes": {"qsvm": q_pred, "rbf": c_pred, "vqc": v_pred},
+                "n_agree": sum(v == q_pred for v in votes),
+                "n_models": len(votes),
+            },
             "encoding": {
                 "pca_components": pcs,
                 "qubit_angles": angles.tolist(),
@@ -283,8 +321,12 @@ class InferencePipeline:
             "n_train": len(self.X_train),
             "n_test": len(self.X_test),
             "n_rois": len(self.feature_cols),
+            "vqc_circuit_metrics": self.vqc_circuit_metrics,
+            "vqc_loss_final": round(self.vqc_loss_history[-1], 4)
+            if self.vqc_loss_history else None,
             "models": [
                 "Quantum Kernel SVM (ZZFeatureMap, full entanglement)",
+                "VQC (RealAmplitudes + COBYLA)",
                 "Classical SVM (RBF, probability)",
             ],
         }
