@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import numpy as np
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 from src import quantum_viz as qv
@@ -148,6 +149,34 @@ def classify_scan():
                   "statevector", "kernel_similarities")
     }
     return jsonify(_attach_figures(payload, nii_path=tmp))
+
+
+@app.post("/api/explore")
+def explore():
+    """Interactive playground: {angles: [a0..a3]} or {morph: t in [0,1]}."""
+    body = request.get_json(force=True) or {}
+    p = get_pipeline()
+    if "angles" in body:
+        angles = np.clip(np.asarray(body["angles"], dtype=float), 0.0, np.pi)
+        if angles.shape != (p.n_qubits,):
+            return jsonify({"error": f"angles must have {p.n_qubits} values"}), 400
+    elif "morph" in body:
+        angles = p.morph_angles(float(body["morph"]))
+    else:
+        angles = p.medoid_control  # default: prototypical control patient
+    return jsonify(p.explore(angles))
+
+
+@app.get("/api/kernel/meta")
+def kernel_meta():
+    """Static arrays the playground needs once (train labels for coloring)."""
+    p = get_pipeline()
+    return jsonify({"y_train": p.y_train.tolist(),
+                    "medoid_control": p.medoid_control.tolist(),
+                    "medoid_autism": p.medoid_autism.tolist(),
+                    "medoid_subject_ids": {
+                        "control": int(p.train_subject_ids[p.medoid[0]]),
+                        "autism": int(p.train_subject_ids[p.medoid[1]])}})
 
 
 @app.get("/api/export/<job_id>/<kind>.csv")
