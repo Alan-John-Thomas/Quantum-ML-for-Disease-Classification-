@@ -18,6 +18,7 @@ from sklearn.metrics import (
 from src.data_loader import load_and_preprocess_data
 from src.classical_baselines import get_classical_baselines
 from src.quantum_kernel import FastQuantumKernelClassifier
+from src.vqc_classifier import VQCClassifier
 
 def evaluate_model(
     model,
@@ -152,6 +153,19 @@ def run_benchmarks(
         circuit_metrics=circ_metrics_full
     )
     results.append(res_full)
+
+    # 4. Variational Quantum Classifier (VQC)
+    print("Training Variational Quantum Classifier (RealAmplitudes + COBYLA)...")
+    vqc = VQCClassifier(
+        n_qubits=n_features, reps=1, entanglement="linear", maxiter=25, subsample_train=100, random_state=random_state
+    )
+    circ_metrics_vqc = vqc.get_circuit_metrics()
+    res_vqc = evaluate_model(
+        vqc, X_train, y_train, X_test, y_test,
+        "Variational Quantum Classifier (VQC)",
+        circuit_metrics=circ_metrics_vqc
+    )
+    results.append(res_vqc)
 
     print("\n" + "=" * 65)
     print("FINAL COMPARATIVE BENCHMARK TABLE")
