@@ -166,25 +166,6 @@ class InferencePipeline:
         self.vqc.weights_ = art["vqc_weights"]
         self.vqc.training_loss_history_ = art["vqc_loss_history"]
 
-        # Class medoids (prototype patients) for the morph slider:
-        # the real training subject with max mean fidelity to its own class.
-        t0 = time.perf_counter()
-        states = self.qsvm.train_states_
-        gram = np.array([
-            [abs(a.inner(b)) ** 2 for b in states] for a in states
-        ])
-        self.medoid = {}
-        for cls in (0, 1):
-            idx = np.where(self.y_train == cls)[0]
-            sub = gram[np.ix_(idx, idx)]
-            self.medoid[cls] = int(idx[sub.mean(axis=1).argmax()])
-        self.medoid_control = self.X_train[self.medoid[0]]
-        self.medoid_autism = self.X_train[self.medoid[1]]
-        print(f"[pipeline] class medoids ready "
-              f"(control={int(self.train_subject_ids[self.medoid[0]])}, "
-              f"autism={int(self.train_subject_ids[self.medoid[1]])}, "
-              f"{time.perf_counter() - t0:.1f}s)")
-
         self._test_sid_set = set(self.test_subject_ids.tolist())
 
     # ------------------------------------------------------------------
@@ -286,43 +267,6 @@ class InferencePipeline:
             "roi_values": np.asarray(roi_vector).tolist(),
             "roi_names": self.feature_cols,
             "timings": timings,
-        }
-
-    # ------------------------------------------------------------------
-    def morph_angles(self, t: float) -> np.ndarray:
-        """Interpolate between class medoids (prototype patients) in
-        encoded angle space: t=0 typical control, t=1 typical autism."""
-        t = float(np.clip(t, 0.0, 1.0))
-        return (1.0 - t) * self.medoid_control + t * self.medoid_autism
-
-    def explore(self, angles: np.ndarray) -> dict:
-        """Lightweight payload for the interactive playground — no figures."""
-        angles = np.clip(np.asarray(angles, dtype=float), 0.0, np.pi)
-        sv = self._statevector(angles)
-        kernel_row = np.array([
-            abs(sv.inner(ts)) ** 2 for ts in self.qsvm.train_states_
-        ])
-        q_pred = int(self.qsvm_svc.predict(kernel_row.reshape(1, -1))[0])
-        q_score = float(self.qsvm_svc.decision_function(
-            kernel_row.reshape(1, -1))[0])
-        v_prob = self.vqc.predict_proba([angles])[0]
-        c_prob = self.rbf_svc.predict_proba([angles])[0]
-        amps = sv.data
-        votes = [q_pred, int(v_prob[1] >= 0.5), int(c_prob[1] >= 0.5)]
-        return {
-            "angles": angles.tolist(),
-            "angles_deg": (angles * 180.0 / np.pi).tolist(),
-            "prediction": q_pred,
-            "label": LABEL_NAMES[q_pred],
-            "decision_score": q_score,
-            "confidence": float(1.0 / (1.0 + np.exp(-q_score))),
-            "vqc_autism": float(v_prob[1]),
-            "rbf_autism": float(c_prob[1]),
-            "consensus_n": sum(v == q_pred for v in votes),
-            "amplitudes_re": amps.real.tolist(),
-            "amplitudes_im": amps.imag.tolist(),
-            "bloch_vectors": self._bloch_vectors(sv, self.n_qubits),
-            "kernel_row": kernel_row.tolist(),
         }
 
     def classify_subject(self, subject_id: int) -> dict:

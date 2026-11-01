@@ -65,52 +65,6 @@
     <a data-csv="kernel_similarities">kernel row<span class="dl">↓</span></a>
   </div>
 
-  <!-- ======== interactive playground ======== -->
-  <section id="playground" class="plate reveal">
-    <div class="pg-head">
-      <span class="idx">⟡</span>
-      <span class="pg-title">Quantum playground — how the encoded state changes</span>
-      <span class="pg-hint">slide the qubit angles, or morph control ↔ autism</span>
-    </div>
-    <div class="pg-grid">
-      <div class="pg-controls">
-        <div id="pg-verdict" class="pg-verdict">—</div>
-        <div class="pg-models">
-          <div class="pg-mrow"><span>qsvm</span><div class="pg-bar"><i id="pb-qsvm"></i></div><em id="pv-qsvm"></em></div>
-          <div class="pg-mrow"><span>vqc</span><div class="pg-bar"><i id="pb-vqc"></i></div><em id="pv-vqc"></em></div>
-          <div class="pg-mrow"><span>rbf</span><div class="pg-bar"><i id="pb-rbf"></i></div><em id="pv-rbf"></em></div>
-        </div>
-        <div class="pg-slider morph">
-          <div class="pg-shead"><span>class morph</span><em id="sv-morph">control prototype</em></div>
-          <input type="range" id="sl-morph" min="0" max="100" value="0" step="1">
-          <div class="pg-ticks"><span>control</span><span>autism</span></div>
-        </div>
-        <div class="pg-slider"><div class="pg-shead"><span>q<sub>0</sub> angle</span><em id="sv-q0"></em></div>
-          <input type="range" class="angle" data-q="0" min="0" max="3.1416" step="0.008" value="0"></div>
-        <div class="pg-slider"><div class="pg-shead"><span>q<sub>1</sub> angle</span><em id="sv-q1"></em></div>
-          <input type="range" class="angle" data-q="1" min="0" max="3.1416" step="0.008" value="0"></div>
-        <div class="pg-slider"><div class="pg-shead"><span>q<sub>2</sub> angle</span><em id="sv-q2"></em></div>
-          <input type="range" class="angle" data-q="2" min="0" max="3.1416" step="0.008" value="0"></div>
-        <div class="pg-slider"><div class="pg-shead"><span>q<sub>3</sub> angle</span><em id="sv-q3"></em></div>
-          <input type="range" class="angle" data-q="3" min="0" max="3.1416" step="0.008" value="0"></div>
-      </div>
-      <div class="pg-viz">
-        <div class="pg-viz-block">
-          <div class="pg-viz-label">per-qubit bloch vectors · x–z plane</div>
-          <canvas id="cv-bloch" height="120"></canvas>
-        </div>
-        <div class="pg-viz-block">
-          <div class="pg-viz-label">basis-state phases arg(a<sub>k</sub>)</div>
-          <canvas id="cv-phases" height="110"></canvas>
-        </div>
-        <div class="pg-viz-block">
-          <div class="pg-viz-label">kernel fidelity vs 753 training states</div>
-          <canvas id="cv-kernel" height="110"></canvas>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ======== figures ======== -->
   <section id="fig-grid" class="hidden">
 
