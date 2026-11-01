@@ -52,3 +52,7 @@ Thumbs.db
 
 # Persisted inference artifacts (regenerate via app/server.py --retrain)
 models/
+
+# Node tooling (screenshot capture helper)
+node_modules/
+tools/node_modules/
