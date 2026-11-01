@@ -44,7 +44,7 @@ function renderSubjectList(filter) {
 
 /* ---------- classify ---------- */
 async function runClassify(fetchPromise, busyMsg) {
-  status(busyMsg);
+  status(`<span class="spin"></span>${busyMsg}`);
   const btn = $("btn-classify");
   btn.disabled = true;
   try {
@@ -60,6 +60,12 @@ async function runClassify(fetchPromise, busyMsg) {
   }
 }
 
+function retriggerInkIn(el) {
+  el.classList.remove("ink-in");
+  void el.offsetWidth;          /* restart animation */
+  el.classList.add("ink-in");
+}
+
 function renderResult(d) {
   const q = d.quantum, c = d.classical, v = d.vqc;
   const cls = q.prediction === 1 ? "autism" : "control";
@@ -68,6 +74,7 @@ function renderResult(d) {
   const lbl = $("pred-label");
   lbl.textContent = q.label;
   lbl.className = cls;
+  retriggerInkIn(lbl);
 
   $("verdict-kicker").textContent = d.scan_file
     ? `scan · ${d.scan_file}`
@@ -139,7 +146,7 @@ function renderResult(d) {
       `<td>${a.toFixed(4)}</td><td>${d.encoding.angles_deg[i].toFixed(1)}°</td></tr>`
     ).join("");
 
-  $("fig-grid").scrollIntoView({ block: "nearest" });
+  $("fig-grid").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 /* ---------- events ---------- */

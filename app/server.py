@@ -55,19 +55,11 @@ def _attach_figures(payload: dict, nii_path: str | None = None) -> dict:
     global _CIRCUIT_B64
     p = get_pipeline()
     figs = {
-        "roi_profile": qv.fig_roi_profile(
-            payload["roi_values"], payload["roi_names"]),
         "pca_angles": qv.fig_pca_and_angles(
             payload["encoding"]["pca_components"],
             payload["encoding"]["qubit_angles"],
             [v * 100 for v in p.pca_variance]),
-        "statevector": qv.fig_statevector(
-            payload["quantum_state"]["basis_states"],
-            payload["quantum_state"]["amplitudes_re"],
-            payload["quantum_state"]["amplitudes_im"]),
-        "bloch": qv.fig_bloch(payload["quantum_state"]["bloch_vectors"]),
         "kernel_hist": qv.fig_kernel_hist(payload["kernel_row"], p.y_train),
-        "vqc_loss": qv.fig_vqc_loss(p.vqc.training_loss_history_),
     }
     if nii_path is not None:
         figs["mri_slices"] = qv.fig_mri_slices(nii_path)
