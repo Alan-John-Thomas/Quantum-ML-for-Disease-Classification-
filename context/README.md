@@ -10,6 +10,11 @@ Both human team members and AI coding agents MUST consult these documents before
 
 | Document | Purpose | Primary Audience |
 | :--- | :--- | :--- |
+| [`00-challenge-brief.md`](00-challenge-brief.md) | Official challenge text, requirements, and full judging criteria | Both Members |
+| [`01-idea-analysis.md`](01-idea-analysis.md) | Initial 6-candidate comparative analysis and research notes | Both Members |
+| [`02-dataset-notes.md`](02-dataset-notes.md) | Local MRI dataset audit, NIfTI headers, and phenotypic notes | Jeswin / Devin |
+| [`03-mri-technical-deepdive.md`](03-mri-technical-deepdive.md) | Neuroimaging compatibility matrix, resampling traps, and risk register | Jeswin / Devin |
+| [`04-dataset-evaluation-and-selection-report.md`](04-dataset-evaluation-and-selection-report.md) | **Adversarial audit, machine constraint check & final dataset decision** | **Both Members** |
 | [`project_brief.md`](project_brief.md) | Problem formulation, hackathon scope, deliverables, and judging rules | Both Members |
 | [`team_contracts.md`](team_contracts.md) | Division of responsibilities, data schemas, API interfaces, and handoff protocols | Member 1 & Member 2 |
 | [`technical_architecture.md`](technical_architecture.md) | Mathematical formulation, circuit topology, classical baselines, and Qiskit 1.x pipeline | Both Members |
