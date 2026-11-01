@@ -1,4 +1,4 @@
-/* NeuroQ-ASD real-time classifier dashboard — vanilla JS, no deps. */
+/* NeuroQ-ASD — dashboard logic (vanilla JS, no dependencies). */
 
 const $ = (id) => document.getElementById(id);
 const status = (msg, isErr = false) => {
@@ -16,12 +16,11 @@ async function boot() {
   try {
     const info = await (await fetch("/api/info")).json();
     $("model-chips").innerHTML = [
-      `<b>${info.n_qubits} qubits</b>`,
-      `entanglement <b>${info.entanglement}</b>`,
+      `<b>${info.n_qubits}q</b> zz featuremap`,
       `depth <b>${info.circuit_metrics.depth}</b>`,
-      `CNOTs <b>${info.circuit_metrics.cx_count}</b>`,
-      `PCA var <b>${info.pca_total_variance_pct}%</b>`,
-      `train <b>${info.n_train}</b> / test <b>${info.n_test}</b>`,
+      `<b>${info.circuit_metrics.cx_count}</b> cnots`,
+      `pca var <b>${info.pca_total_variance_pct}%</b>`,
+      `<b>${info.n_train}</b> train · <b>${info.n_test}</b> test`,
     ].map(c => `<span class="chip">${c}</span>`).join("");
 
     SUBJECTS = await (await fetch("/api/subjects")).json();
@@ -38,59 +37,83 @@ function renderSubjectList(filter) {
     String(s.subject_id).includes(q) || s.label.toLowerCase().includes(q) ||
     s.split.includes(q));
   sel.innerHTML = rows.slice(0, 400).map(s =>
-    `<option value="${s.subject_id}">#${s.subject_id} · ${s.label} · ${s.split}</option>`
+    `<option value="${s.subject_id}">#${s.subject_id} — ${s.label} · ${s.split}</option>`
   ).join("");
   if (rows.length) sel.selectedIndex = 0;
 }
 
-/* ---------- classification ---------- */
+/* ---------- classify ---------- */
 async function runClassify(fetchPromise, busyMsg) {
   status(`<span class="spin"></span>${busyMsg}`);
-  const t0 = performance.now();
+  const btn = $("btn-classify");
+  btn.disabled = true;
   try {
     const res = await fetchPromise;
     const data = await res.json();
-    if (!res.ok) { status("Error: " + (data.error || res.statusText), true); return; }
-    renderResult(data, (performance.now() - t0).toFixed(0));
-    status(`Done in ${data.timings.total_ms ?? "?"} ms server-side.`);
+    if (!res.ok) { status("Error — " + (data.error || res.statusText), true); return; }
+    renderResult(data);
+    status(`pipeline latency ${data.timings.total_ms ?? "?"} ms`);
   } catch (e) {
     status("Request failed: " + e, true);
+  } finally {
+    btn.disabled = false;
   }
 }
 
-function renderResult(d, clientMs) {
+function retriggerInkIn(el) {
+  el.classList.remove("ink-in");
+  void el.offsetWidth;          /* restart animation */
+  el.classList.add("ink-in");
+}
+
+function renderResult(d) {
   const q = d.quantum, c = d.classical;
   const cls = q.prediction === 1 ? "autism" : "control";
-  const banner = $("banner");
-  banner.className = "banner " + cls;
-  $("pred-label").textContent = q.label;
-  $("pred-sub").textContent =
-    `Quantum Kernel SVM · decision score ${q.decision_score.toFixed(3)} · ` +
-    (d.agree ? "classical RBF-SVM agrees" : "classical RBF-SVM disagrees → " + c.label);
 
+  /* verdict */
+  const lbl = $("pred-label");
+  lbl.textContent = q.label;
+  lbl.className = cls;
+  retriggerInkIn(lbl);
+
+  $("verdict-kicker").textContent = d.scan_file
+    ? `scan · ${d.scan_file}`
+    : `subject · #${d.subject?.subject_id ?? "—"} · ${d.subject?.split ?? ""} split`;
+
+  $("pred-sub").innerHTML =
+    `Quantum kernel decision score <b>${q.decision_score.toFixed(3)}</b>. ` +
+    (d.agree
+      ? `The classical RBF-SVM concurs (<b>${(c.probabilities[q.prediction === 1 ? "autism" : "control"] * 100).toFixed(1)}%</b>).`
+      : `The classical RBF-SVM dissents — it predicts <b>${c.label}</b> (<b>${(c.probabilities.autism * 100).toFixed(1)}% autism</b>).`);
+
+  /* spec row */
   const t = d.timings;
-  $("banner-stats").innerHTML = [
-    [q.confidence.toFixed(3), "QSVM confidence"],
-    [(c.probabilities.autism * 100).toFixed(1) + "%", "RBF autism prob"],
-    [(t.quantum_infer_ms ?? "?") + " ms", "quantum infer"],
-    [(t.roi_extraction_ms ?? t.encode_ms ?? "?") + " ms", t.roi_extraction_ms ? "ROI extract" : "encode"],
-    [(t.total_ms ?? clientMs) + " ms", "total"],
-  ].map(([v, k]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
+  const specs = [
+    [q.confidence.toFixed(3), "", "qsvm confidence"],
+    [(c.probabilities.autism * 100).toFixed(1), "%", "rbf autism prob"],
+    [t.quantum_infer_ms ?? "—", "ms", "quantum infer"],
+    [t.roi_extraction_ms ?? t.encode_ms ?? "—", "ms",
+     t.roi_extraction_ms ? "roi extraction" : "encoding"],
+    [t.total_ms ?? "—", "ms", "total"],
+  ];
+  $("spec-row").innerHTML = specs.map(([v, u, k]) =>
+    `<div class="spec"><div class="v">${v}<span class="u">${u}</span></div><div class="k">${k}</div></div>`
+  ).join("");
+  $("spec-row").classList.remove("hidden");
 
-  // true-label reveal for dataset subjects
+  /* ground truth (subjects only) */
   const truth = $("subject-truth");
   if (d.subject && $("reveal-label").checked) {
     const s = d.subject;
     const hit = (s.true_dx_group === 1) === (q.prediction === 1);
     truth.classList.remove("hidden");
     truth.innerHTML =
-      `Subject <b>#${s.subject_id}</b> (${s.split} split) — true diagnosis: <b>${s.true_label}</b> · ` +
-      `<span class="${hit ? "hit" : "miss"}">${hit ? "✓ correct" : "✗ misclassified"}</span>`;
+      `ground truth — <b>${s.true_label}</b> <span class="${hit ? "hit" : "miss"}">${hit ? "· correct" : "· misclassified"}</span>`;
   } else {
     truth.classList.add("hidden");
   }
 
-  // csv links
+  /* exports */
   CsvUrls = d.csv_urls || {};
   $("csv-bar").classList.remove("hidden");
   document.querySelectorAll("[data-csv]").forEach(a => {
@@ -98,37 +121,50 @@ function renderResult(d, clientMs) {
     a.setAttribute("download", "");
   });
 
-  // figures
+  /* figures */
   $("fig-grid").classList.remove("hidden");
   for (const [key, b64] of Object.entries(d.figures || {})) {
     const img = $("fig-" + key);
     if (img && b64) img.src = "data:image/png;base64," + b64;
-    if (key === "mri_slices" && b64) $("card-mri").classList.remove("hidden");
   }
-  if (!d.figures?.mri_slices) $("card-mri").classList.add("hidden");
+  $("card-mri").classList.toggle("hidden", !d.figures?.mri_slices);
 
-  // angle table
-  const tb = document.querySelector("#angle-table tbody");
-  tb.innerHTML = d.encoding.qubit_angles.map((a, i) =>
-    `<tr><td>q${i}</td><td>${d.encoding.pca_components[i].toFixed(4)}</td>` +
-    `<td>${a.toFixed(4)}</td><td>${d.encoding.angles_deg[i].toFixed(1)}°</td></tr>`
-  ).join("");
+  /* encoding table */
+  document.querySelector("#angle-table tbody").innerHTML =
+    d.encoding.qubit_angles.map((a, i) =>
+      `<tr><td>q${i}</td><td>${d.encoding.pca_components[i].toFixed(4)}</td>` +
+      `<td>${a.toFixed(4)}</td><td>${d.encoding.angles_deg[i].toFixed(1)}°</td></tr>`
+    ).join("");
+
+  $("fig-grid").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 /* ---------- events ---------- */
 $("subject-filter").addEventListener("input", e => renderSubjectList(e.target.value));
+$("subject-select").addEventListener("change", () => {
+  pendingFile = null;
+  $("file-name").textContent = "";
+  $("file-input").value = "";
+});
 
-$("btn-classify-subject").addEventListener("click", () => {
-  const sid = $("subject-select").value;
-  if (!sid) { status("Pick a subject first.", true); return; }
-  runClassify(
-    fetch("/api/classify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject_id: Number(sid) }),
-    }),
-    `Encoding subject #${sid} into Hilbert space…`
-  );
+$("btn-classify").addEventListener("click", () => {
+  if (pendingFile) {
+    const fd = new FormData();
+    fd.append("file", pendingFile);
+    runClassify(
+      fetch("/api/classify/scan", { method: "POST", body: fd }),
+      `extracting 69 rois from ${pendingFile.name}, encoding into hilbert space…`);
+  } else {
+    const sid = $("subject-select").value;
+    if (!sid) { status("Pick a subject or drop a scan first.", true); return; }
+    runClassify(
+      fetch("/api/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject_id: Number(sid) }),
+      }),
+      `encoding subject #${sid} into hilbert space…`);
+  }
 });
 
 const dz = $("dropzone");
@@ -138,25 +174,15 @@ dz.addEventListener("drop", e => {
   e.preventDefault(); dz.classList.remove("drag");
   if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
 });
-$("btn-browse").addEventListener("click", () => $("file-input").click());
+dz.addEventListener("click", () => $("file-input").click());
+dz.addEventListener("keydown", e => { if (e.key === "Enter") $("file-input").click(); });
 $("file-input").addEventListener("change", e => {
   if (e.target.files.length) setFile(e.target.files[0]);
 });
 
 function setFile(f) {
   pendingFile = f;
-  $("file-name").textContent = `${f.name} (${(f.size / 1e6).toFixed(1)} MB)`;
-  $("btn-classify-scan").disabled = false;
+  $("file-name").textContent = `${f.name} · ${(f.size / 1e6).toFixed(1)} mb`;
 }
-
-$("btn-classify-scan").addEventListener("click", () => {
-  if (!pendingFile) return;
-  const fd = new FormData();
-  fd.append("file", pendingFile);
-  runClassify(
-    fetch("/api/classify/scan", { method: "POST", body: fd }),
-    `Extracting 69 ROIs from ${pendingFile.name} and encoding…`
-  );
-});
 
 boot();

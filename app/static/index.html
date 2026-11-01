@@ -3,83 +3,123 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NeuroQ-ASD · Real-time Quantum MRI Classifier</title>
+<title>NeuroQ-ASD — Quantum MRI Classification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header>
-  <div class="brand">
-    <span class="logo">⟨φ|</span>
-    <div>
-      <h1>NeuroQ-ASD</h1>
-      <p>Real-time Quantum Kernel MRI Classifier · ZZFeatureMap + QSVM</p>
-    </div>
-  </div>
-  <div id="model-chips" class="chips"><span class="chip muted">loading model…</span></div>
-</header>
+
+<nav class="nav">
+  <div class="wordmark">NeuroQ<em>·ASD</em></div>
+  <div class="nav-meta" id="model-chips"></div>
+</nav>
 
 <main>
-  <aside id="controls">
-    <section class="card">
-      <h2>1 · Pick dataset subject</h2>
-      <input id="subject-filter" type="text" placeholder="filter by id / label…" autocomplete="off">
-      <select id="subject-select" size="8"></select>
-      <label class="chk"><input type="checkbox" id="reveal-label"> show true diagnosis</label>
-      <button id="btn-classify-subject" class="primary">Classify Subject</button>
-    </section>
 
-    <section class="card">
-      <h2>2 · Or upload MRI scan</h2>
-      <div id="dropzone">
-        <p>Drop <code>.nii</code> / <code>.nii.gz</code> here</p>
-        <p class="muted">or</p>
-        <button id="btn-browse" type="button">Browse file…</button>
-        <input id="file-input" type="file" accept=".nii,.gz" hidden>
+  <!-- ======== command bar ======== -->
+  <section class="cmd reveal">
+    <div class="cmd-group">
+      <div class="field">
+        <span class="field-label">Dataset subject</span>
+        <input id="subject-filter" type="text" placeholder="Search 1,004 scans…" autocomplete="off">
+        <select id="subject-select"></select>
+        <label class="chk"><input type="checkbox" id="reveal-label"><span></span>reveal ground truth</label>
       </div>
-      <div id="file-name" class="muted"></div>
-      <button id="btn-classify-scan" class="primary" disabled>Classify Scan</button>
-    </section>
-  </aside>
 
-  <section id="results">
-    <div id="banner" class="banner empty">
-      <div class="banner-left">
-        <div id="pred-label" class="pred">Awaiting input</div>
-        <div id="pred-sub" class="muted">Classify a subject or upload a scan to begin.</div>
+      <div class="cmd-sep"><span>or</span></div>
+
+      <div class="field">
+        <span class="field-label">MRI scan upload</span>
+        <div id="dropzone" role="button" tabindex="0">
+          <span class="dz-icon">↓</span>
+          <span class="dz-text">Drop <code>.nii</code> / <code>.nii.gz</code> — or click to browse</span>
+          <input id="file-input" type="file" accept=".nii,.gz" hidden>
+        </div>
+        <div id="file-name"></div>
       </div>
-      <div id="banner-stats" class="banner-stats"></div>
     </div>
 
-    <div id="subject-truth" class="truth hidden"></div>
-
-    <div id="csv-bar" class="csv-bar hidden">
-      <span>Export quantum data:</span>
-      <a data-csv="roi_features" class="csv-btn">ROI features CSV</a>
-      <a data-csv="pca_components" class="csv-btn">PCA components CSV</a>
-      <a data-csv="qubit_angles" class="csv-btn">Qubit angles CSV</a>
-      <a data-csv="statevector" class="csv-btn">Statevector CSV</a>
-      <a data-csv="kernel_similarities" class="csv-btn">Kernel similarities CSV</a>
-    </div>
-
-    <div id="fig-grid" class="grid hidden">
-      <figure class="card wide" id="card-mri"><figcaption>MRI Slices</figcaption><img id="fig-mri_slices"></figure>
-      <figure class="card wide"><figcaption>ROI Intensity Profile (69 Harvard-Oxford regions)</figcaption><img id="fig-roi_profile"></figure>
-      <figure class="card"><figcaption>PCA → Qubit Rotation Angles</figcaption><img id="fig-pca_angles"></figure>
-      <figure class="card">
-        <figcaption>Qubit Encoding Table</figcaption>
-        <table id="angle-table">
-          <thead><tr><th>Qubit</th><th>PC value</th><th>Angle (rad)</th><th>Angle (deg)</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </figure>
-      <figure class="card wide"><figcaption>Quantum State — Basis Probabilities</figcaption><img id="fig-statevector"></figure>
-      <figure class="card"><figcaption>Per-Qubit Bloch Vectors</figcaption><img id="fig-bloch"></figure>
-      <figure class="card"><figcaption>Kernel Fidelity vs Training States</figcaption><img id="fig-kernel_hist"></figure>
-      <figure class="card wide"><figcaption>ZZFeatureMap Circuit</figcaption><img id="fig-circuit"></figure>
-    </div>
-
-    <div id="status" class="status"></div>
+    <button id="btn-classify" class="cta">
+      <span>Classify</span><span class="cta-arrow">→</span>
+    </button>
   </section>
+
+  <!-- ======== verdict ======== -->
+  <section id="verdict" class="reveal">
+    <div class="kicker" id="verdict-kicker">quantum kernel svm · zzfeaturemap · 4 qubits</div>
+    <h1 id="pred-label" class="idle">Awaiting input</h1>
+    <p id="pred-sub">Choose a subject or drop a scan — the pipeline encodes the scan into a 16-dimensional Hilbert space and classifies in real time.</p>
+    <div id="subject-truth" class="truth hidden"></div>
+    <div id="spec-row" class="hidden"></div>
+  </section>
+
+  <!-- ======== exports ======== -->
+  <div id="csv-bar" class="exports reveal hidden">
+    <span class="exp-label">Export encoding data</span>
+    <a data-csv="roi_features">roi features<span class="dl">↓</span></a>
+    <a data-csv="pca_components">pca<span class="dl">↓</span></a>
+    <a data-csv="qubit_angles">qubit angles<span class="dl">↓</span></a>
+    <a data-csv="statevector">statevector<span class="dl">↓</span></a>
+    <a data-csv="kernel_similarities">kernel row<span class="dl">↓</span></a>
+  </div>
+
+  <!-- ======== figures ======== -->
+  <section id="fig-grid" class="hidden">
+
+    <figure class="plate span-12" id="card-mri">
+      <figcaption><span class="idx">01</span>MRI — orthogonal mid-slices</figcaption>
+      <img id="fig-mri_slices" alt="MRI slices">
+    </figure>
+
+    <figure class="plate span-12">
+      <figcaption><span class="idx">02</span>ROI intensity profile · 69 Harvard–Oxford regions</figcaption>
+      <img id="fig-roi_profile" alt="ROI profile">
+    </figure>
+
+    <figure class="plate span-7">
+      <figcaption><span class="idx">03</span>PCA projection → qubit rotation angles</figcaption>
+      <img id="fig-pca_angles" alt="PCA and qubit angles">
+    </figure>
+
+    <figure class="plate span-5">
+      <figcaption><span class="idx">04</span>Encoding table</figcaption>
+      <table id="angle-table">
+        <thead><tr><th>qubit</th><th>pc value</th><th>angle rad</th><th>deg</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </figure>
+
+    <figure class="plate span-7">
+      <figcaption><span class="idx">05</span>Quantum state |φ(x)⟩ — magnitudes &amp; phases</figcaption>
+      <img id="fig-statevector" alt="Statevector">
+    </figure>
+
+    <figure class="plate span-5">
+      <figcaption><span class="idx">06</span>Per-qubit Bloch vectors</figcaption>
+      <img id="fig-bloch" alt="Bloch spheres">
+    </figure>
+
+    <figure class="plate span-7">
+      <figcaption><span class="idx">07</span>Kernel fidelity vs 753 training states</figcaption>
+      <img id="fig-kernel_hist" alt="Kernel similarity">
+    </figure>
+
+    <figure class="plate span-12">
+      <figcaption><span class="idx">08</span>ZZFeatureMap · transpiled circuit</figcaption>
+      <img id="fig-circuit" alt="Quantum circuit">
+    </figure>
+
+  </section>
+
+  <div id="status" class="status"></div>
+
+  <footer class="foot">
+    <span>NeuroQ-ASD · ABIDE I structural MRI · Qiskit Fall Fest 2026</span>
+    <span class="mono">K(xᵢ, xⱼ) = |⟨φ(xᵢ)|φ(xⱼ)⟩|²</span>
+  </footer>
+
 </main>
 
 <script src="/static/app.js"></script>
